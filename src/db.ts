@@ -71,23 +71,36 @@ export async function createRule(env: Env, rule: { name: string; terms: string[]
   `).bind(id(), DEFAULT_TENANT, rule.name, JSON.stringify(rule.terms), rule.maxPriceCents).run();
 }
 
+async function resolvedRuleId(env: Env, suppliedId: string): Promise<string | null> {
+  if (!/^[a-f0-9-]{8,36}$/i.test(suppliedId)) return null;
+  const row = await env.DB.prepare("SELECT id FROM watch_rules WHERE tenant_id = ? AND deleted_at IS NULL AND id LIKE ? LIMIT 2")
+    .bind(DEFAULT_TENANT, `${suppliedId}%`).all<{ id: string }>();
+  return row.results?.length === 1 ? row.results[0].id : null;
+}
+
 export async function updateRule(env: Env, ruleId: string, values: { name: string; terms: string[]; maxPriceCents: number | null }): Promise<boolean> {
+  const id = await resolvedRuleId(env, ruleId);
+  if (!id) return false;
   const result = await env.DB.prepare(`
     UPDATE watch_rules SET name = ?, include_terms_json = ?, max_price_cents = ?, updated_at = datetime('now')
     WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL
-  `).bind(values.name, JSON.stringify(values.terms), values.maxPriceCents, ruleId, DEFAULT_TENANT).run();
+  `).bind(values.name, JSON.stringify(values.terms), values.maxPriceCents, id, DEFAULT_TENANT).run();
   return (result.meta.changes ?? 0) > 0;
 }
 
 export async function pauseRule(env: Env, ruleId: string, paused: boolean): Promise<boolean> {
+  const id = await resolvedRuleId(env, ruleId);
+  if (!id) return false;
   const result = await env.DB.prepare("UPDATE watch_rules SET is_paused = ?, updated_at = datetime('now') WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL")
-    .bind(paused ? 1 : 0, ruleId, DEFAULT_TENANT).run();
+    .bind(paused ? 1 : 0, id, DEFAULT_TENANT).run();
   return (result.meta.changes ?? 0) > 0;
 }
 
 export async function removeRule(env: Env, ruleId: string): Promise<boolean> {
+  const id = await resolvedRuleId(env, ruleId);
+  if (!id) return false;
   const result = await env.DB.prepare("UPDATE watch_rules SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL")
-    .bind(ruleId, DEFAULT_TENANT).run();
+    .bind(id, DEFAULT_TENANT).run();
   return (result.meta.changes ?? 0) > 0;
 }
 
