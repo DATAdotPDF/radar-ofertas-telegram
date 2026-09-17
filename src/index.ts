@@ -198,6 +198,11 @@ export default {
       if (update.message?.text) await handleCommand(env, update.message);
       return new Response("ok");
     }
+    if (request.method === "POST" && url.pathname === "/webhooks/mercadolivre") {
+      const contentLength = Number(request.headers.get("Content-Length") ?? "0");
+      if (contentLength > 32_768) return new Response("payload too large", { status: 413 });
+      return new Response("ok", { headers: { "Cache-Control": "no-store" } });
+    }
     if (request.method === "GET" && url.pathname === "/oauth/mercadolivre/callback") {
       try {
         await completeMeliAuthorization(env, url.searchParams.get("code"), url.searchParams.get("state"));

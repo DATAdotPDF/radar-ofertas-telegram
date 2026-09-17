@@ -70,6 +70,14 @@ No DevCenter do Mercado Livre, cadastre como Redirect URI:
 https://SEU-WORKER.workers.dev/oauth/mercadolivre/callback
 ```
 
+Se o DevCenter exigir a URL de notificações ao selecionar o tópico `items`, cadastre:
+
+```text
+https://SEU-WORKER.workers.dev/webhooks/mercadolivre
+```
+
+Nesta versão, a rota apenas confirma o recebimento. As buscas de ofertas seguem o cron horário.
+
 Depois da publicação e dos três Secrets, use `/conectar_ml` no Telegram. O token de renovação é criptografado antes de ser salvo no D1.
 
 ## GitHub Actions
