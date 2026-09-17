@@ -38,7 +38,7 @@ export async function replyTelegram(env: Env, chatId: string, text: string): Pro
   await callTelegram(env, "sendMessage", { chat_id: chatId, text, disable_web_page_preview: true });
 }
 
-export type TelegramWebhookState = "configured" | "missing_configuration" | "telegram_rejected" | "network_error";
+export type TelegramWebhookState = "configured" | "missing_configuration" | "telegram_token_rejected" | "telegram_webhook_rejected" | "network_error";
 
 export async function ensureTelegramWebhook(env: Env): Promise<TelegramWebhookState> {
   if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_WEBHOOK_SECRET || !env.WORKER_PUBLIC_URL) return "missing_configuration";
@@ -47,7 +47,7 @@ export async function ensureTelegramWebhook(env: Env): Promise<TelegramWebhookSt
   try {
     const infoResponse = await fetch(`${base}/getWebhookInfo`);
     const info = await infoResponse.json() as { ok?: boolean; result?: { url?: string } };
-    if (!infoResponse.ok) return "telegram_rejected";
+    if (!infoResponse.ok) return "telegram_token_rejected";
     if (info.ok && info.result?.url === target) return "configured";
     const response = await fetch(`${base}/setWebhook`, {
       method: "POST",
@@ -60,7 +60,7 @@ export async function ensureTelegramWebhook(env: Env): Promise<TelegramWebhookSt
       })
     });
     const result = await response.json() as { ok?: boolean };
-    return result.ok === true ? "configured" : "telegram_rejected";
+    return result.ok === true ? "configured" : "telegram_webhook_rejected";
   } catch (error) {
     console.error("Não foi possível configurar o webhook do Telegram", error);
     return "network_error";
