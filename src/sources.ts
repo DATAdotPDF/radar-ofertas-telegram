@@ -1,4 +1,5 @@
 import { activeSources, sourceOutcome } from "./db";
+import { meliAccessToken } from "./meli";
 import type { Env, SourceConfig, SourceOffer, WatchRule } from "./types";
 
 export interface ScanResult {
@@ -27,11 +28,12 @@ function asCents(value: unknown): number | null {
   return Number.isFinite(number) && number > 0 ? Math.round(number * 100) : null;
 }
 
-async function mercadoLivre(source: SourceConfig, rules: WatchRule[]): Promise<SourceOffer[]> {
+async function mercadoLivre(env: Env, source: SourceConfig, rules: WatchRule[]): Promise<SourceOffer[]> {
   const mapped: SourceOffer[] = [];
+  const accessToken = await meliAccessToken(env);
   for (const rule of rules) {
     const response = await fetch(`https://api.mercadolibre.com/sites/MLB/search?q=${encodeURIComponent(queryFor(rule))}&limit=20&sort=price_asc`, {
-      headers: { "Accept": "application/json" }
+      headers: { "Accept": "application/json", Authorization: `Bearer ${accessToken}` }
     });
     if (!response.ok) throw new Error(`API Mercado Livre retornou ${response.status}`);
     const data = await response.json() as { results?: Array<Record<string, unknown>> };
@@ -43,7 +45,7 @@ async function mercadoLivre(source: SourceConfig, rules: WatchRule[]): Promise<S
       if (!priceCents || !permalink || !externalId || !title) return null;
       const seller = item.seller as Record<string, unknown> | undefined;
       const condition = item.condition === "used" ? "used" : "new";
-      const description = condition === "used" ? await mercadoLivreDescription(externalId) : undefined;
+      const description = condition === "used" ? await mercadoLivreDescription(externalId, accessToken) : undefined;
       return {
         sourceId: source.id,
         externalId,
@@ -80,9 +82,11 @@ function sellerReputationScore(seller: Record<string, unknown> | undefined): num
   return typeof level === "string" ? scores[level] : undefined;
 }
 
-async function mercadoLivreDescription(itemId: string): Promise<string | undefined> {
+async function mercadoLivreDescription(itemId: string, accessToken: string): Promise<string | undefined> {
   try {
-    const response = await fetch(`https://api.mercadolibre.com/items/${encodeURIComponent(itemId)}/description`);
+    const response = await fetch(`https://api.mercadolibre.com/items/${encodeURIComponent(itemId)}/description`, {
+      headers: { Accept: "application/json", Authorization: `Bearer ${accessToken}` }
+    });
     if (!response.ok) return undefined;
     const data = await response.json() as { plain_text?: unknown };
     return typeof data.plain_text === "string" ? data.plain_text : undefined;
@@ -97,7 +101,7 @@ export async function scanAllowedSources(env: Env, rules: WatchRule[]): Promise<
   for (const source of sources) {
     try {
       if (source.id === "mercado-livre") {
-        const offers = await mercadoLivre(source, rules);
+        const offers = await mercadoLivre(env, source, rules);
         await sourceOutcome(env, source.id, true);
         results.push({ sourceId: source.id, offers, ok: true });
       } else if (source.kind === "browser") {

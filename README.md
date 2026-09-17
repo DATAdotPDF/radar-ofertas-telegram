@@ -10,10 +10,10 @@ O projeto não contém API keys, tokens, senhas ou dados pessoais.
 
 - Banco D1 com tenant, regras, fontes, ofertas, histórico, alertas, quarentena e destinos.
 - Quatro réguas iniciais: consoles e bundles, jogos físicos e colecionáveis, periféricos e jogos digitais pausados.
-- Comandos do Telegram: `/adicionar`, `/regras`, `/editar`, `/pausar`, `/remover`, `/agora`, `/ofertas`, `/fontes`, `/status` e `/quarentena`.
+- Comandos do Telegram: `/adicionar`, `/regras`, `/editar`, `/pausar`, `/remover`, `/agora`, `/ofertas`, `/fontes`, `/status`, `/quarentena` e `/conectar_ml`.
 - Filtros de preço, queda, mediana de 30 dias, novo menor preço, duplicatas e top 3 por régua.
 - Filtro de usados: foto, descrição mínima, termos de risco, reputação, garantia, nota fiscal e quarentena para preço suspeito.
-- Mercado Livre preparado pela API pública.
+- Mercado Livre por OAuth: o token é renovado automaticamente e guardado criptografado no D1.
 - Coletor Playwright separado para fontes liberadas e com URL de busca cadastrada.
 - Conector opcional para GPT-5.6 Luna, desligado por padrão.
 
@@ -53,6 +53,9 @@ npx wrangler secret put TELEGRAM_BOT_TOKEN
 npx wrangler secret put TELEGRAM_WEBHOOK_SECRET
 npx wrangler secret put OWNER_TELEGRAM_USER_ID
 npx wrangler secret put COLLECTOR_SHARED_SECRET
+npx wrangler secret put MELI_CLIENT_ID
+npx wrangler secret put MELI_CLIENT_SECRET
+npx wrangler secret put MELI_TOKEN_ENCRYPTION_KEY
 ```
 
 Publique o Worker e configure o webhook com o segredo criado.
@@ -60,6 +63,14 @@ Publique o Worker e configure o webhook com o segredo criado.
 ```powershell
 npm run deploy
 ```
+
+No DevCenter do Mercado Livre, cadastre como Redirect URI:
+
+```text
+https://SEU-WORKER.workers.dev/oauth/mercadolivre/callback
+```
+
+Depois da publicação e dos três Secrets, use `/conectar_ml` no Telegram. O token de renovação é criptografado antes de ser salvo no D1.
 
 ## GitHub Actions
 

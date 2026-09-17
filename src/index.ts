@@ -4,6 +4,7 @@ import {
   telegramDestinations, updateRule, upsertOffer, upsertTelegramUser
 } from "./db";
 import { assessUsedOffer, evaluateTriggers, formatBRL, matchesRule, scoreCandidate } from "./scoring";
+import { completeMeliAuthorization, createMeliAuthorizationUrl, meliOAuthState } from "./meli";
 import { scanAllowedSources } from "./sources";
 import { ensureTelegramWebhook, replyTelegram, sendOfferAlert, validTelegramWebhook } from "./telegram";
 import type { AlertCandidate, Env, SourceOffer, WatchRule } from "./types";
@@ -93,7 +94,17 @@ async function handleCommand(env: Env, message: { chat: { id: number }; from?: {
     return;
   }
   if (text === "/start") {
-    await replyTelegram(env, chatId, "Radar ativo para você. Use /regras, /adicionar ou /status.");
+    await replyTelegram(env, chatId, "Radar ativo para você. Use /regras, /agora, /conectar_ml ou /status.");
+    return;
+  }
+  if (text === "/conectar_ml") {
+    try {
+      const url = await createMeliAuthorizationUrl(env);
+      await replyTelegram(env, chatId, `Abra este link para autorizar a busca no Mercado Livre:\n${url}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Não foi possível iniciar a conexão";
+      await replyTelegram(env, chatId, message);
+    }
     return;
   }
   if (text === "/adicionar") {
@@ -144,7 +155,8 @@ async function handleCommand(env: Env, message: { chat: { id: number }; from?: {
   }
   if (text === "/status") {
     const status = await statusSummary(env);
-    await replyTelegram(env, chatId, `Réguas ativas: ${status.activeRules}\nFontes ativas: ${status.activeSources}\nOfertas salvas: ${status.offers}\nQuarentena: ${status.quarantined}\nLuna: ${env.GPT_ANALYSIS_ENABLED === "true" ? "ligado" : "desligado"}`);
+    const meli = await meliOAuthState(env);
+    await replyTelegram(env, chatId, `Réguas ativas: ${status.activeRules}\nFontes ativas: ${status.activeSources}\nOfertas salvas: ${status.offers}\nQuarentena: ${status.quarantined}\nMercado Livre: ${meli}\nLuna: ${env.GPT_ANALYSIS_ENABLED === "true" ? "ligado" : "desligado"}`);
     return;
   }
   if (text === "/quarentena") {
@@ -185,6 +197,14 @@ export default {
       const update = await request.json() as { message?: { chat: { id: number }; from?: { id: number }; text?: string } };
       if (update.message?.text) await handleCommand(env, update.message);
       return new Response("ok");
+    }
+    if (request.method === "GET" && url.pathname === "/oauth/mercadolivre/callback") {
+      try {
+        await completeMeliAuthorization(env, url.searchParams.get("code"), url.searchParams.get("state"));
+        return new Response("Mercado Livre autorizado. Você já pode voltar ao Telegram.", { headers: { "Content-Type": "text/plain; charset=utf-8" } });
+      } catch {
+        return new Response("Não foi possível concluir a autorização. Volte ao Telegram e gere um novo link com /conectar_ml.", { status: 400, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+      }
     }
     if (url.pathname.startsWith("/internal/")) {
       if (!authorizedInternal(request, env)) return new Response("forbidden", { status: 403 });

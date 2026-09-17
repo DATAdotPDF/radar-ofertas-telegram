@@ -12,6 +12,9 @@ export interface Env {
   GPT_ANALYSIS_ENABLED?: string;
   OPENAI_API_KEY?: string;
   AI_MONTHLY_BUDGET_USD?: string;
+  MELI_CLIENT_ID?: string;
+  MELI_CLIENT_SECRET?: string;
+  MELI_TOKEN_ENCRYPTION_KEY?: string;
 }
 
 export interface WatchRule {
