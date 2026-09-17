@@ -1,0 +1,26 @@
+{
+  "name": "radar-ofertas-telegram",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "deploy": "wrangler deploy",
+    "db:local": "wrangler d1 migrations apply radar-ofertas-db --local",
+    "db:remote": "wrangler d1 migrations apply radar-ofertas-db --remote"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "latest",
+    "@types/node": "latest",
+    "playwright": "latest",
+    "typescript": "latest",
+    "vitest": "latest",
+    "wrangler": "latest"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

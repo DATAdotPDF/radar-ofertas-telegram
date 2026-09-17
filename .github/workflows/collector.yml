@@ -1,0 +1,27 @@
+name: Coletor autorizado de ofertas
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  collect:
+    if: vars.COLLECTOR_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: node collector/collect.mjs
+        env:
+          COLLECTOR_BASE_URL: ${{ secrets.COLLECTOR_BASE_URL }}
+          COLLECTOR_SHARED_SECRET: ${{ secrets.COLLECTOR_SHARED_SECRET }}
