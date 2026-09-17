@@ -8,7 +8,7 @@ crons = ["17 * * * *"]
 [[d1_databases]]
 binding = "DB"
 database_name = "radar-ofertas-db"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "a1ec2887-3027-420e-ac8f-90d11d5be064"
 migrations_dir = "migrations"
 
 [vars]
