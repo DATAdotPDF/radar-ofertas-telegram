@@ -6,5 +6,9 @@ coverage/
 .env
 .env.*
 !.env.example
+TELEGRAM TOKENS.txt
+**/TELEGRAM TOKENS.txt
+.secrets/
+*.secret
 playwright-report/
 test-results/
