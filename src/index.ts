@@ -5,7 +5,7 @@ import {
 } from "./db";
 import { assessUsedOffer, evaluateTriggers, formatBRL, matchesRule, scoreCandidate } from "./scoring";
 import { scanAllowedSources } from "./sources";
-import { replyTelegram, sendOfferAlert, validTelegramWebhook } from "./telegram";
+import { ensureTelegramWebhook, replyTelegram, sendOfferAlert, validTelegramWebhook } from "./telegram";
 import type { AlertCandidate, Env, SourceOffer, WatchRule } from "./types";
 
 const MAX_ALERTS_PER_RULE = 3;
@@ -176,7 +176,10 @@ async function handleCommand(env: Env, message: { chat: { id: number }; from?: {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
-    if (request.method === "GET" && url.pathname === "/health") return json({ ok: true, aiEnabled: env.GPT_ANALYSIS_ENABLED === "true" });
+    if (request.method === "GET" && url.pathname === "/health") {
+      const telegramWebhook = await ensureTelegramWebhook(env);
+      return json({ ok: true, aiEnabled: env.GPT_ANALYSIS_ENABLED === "true", telegramWebhook });
+    }
     if (request.method === "POST" && url.pathname === "/telegram/webhook") {
       if (!validTelegramWebhook(request, env)) return new Response("forbidden", { status: 403 });
       const update = await request.json() as { message?: { chat: { id: number }; from?: { id: number }; text?: string } };
@@ -194,6 +197,6 @@ export default {
     return new Response("not found", { status: 404 });
   },
   async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-    ctx.waitUntil(runScan(env));
+    ctx.waitUntil(Promise.all([runScan(env), ensureTelegramWebhook(env)]));
   }
 } satisfies ExportedHandler<Env>;

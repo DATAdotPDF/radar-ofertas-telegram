@@ -1,6 +1,8 @@
 name = "radar-ofertas-telegram"
 main = "src/index.ts"
 compatibility_date = "2026-09-17"
+# Segredos e variáveis cadastrados no painel não são removidos por deploys locais.
+keep_vars = true
 
 [triggers]
 crons = ["17 * * * *"]
@@ -14,3 +16,4 @@ migrations_dir = "migrations"
 [vars]
 GPT_ANALYSIS_ENABLED = "false"
 AI_MONTHLY_BUDGET_USD = "2"
+WORKER_PUBLIC_URL = "https://radar-ofertas-telegram.data-pedutraferreira.workers.dev"

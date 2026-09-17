@@ -8,6 +8,7 @@ export interface Env {
   TELEGRAM_WEBHOOK_SECRET?: string;
   OWNER_TELEGRAM_USER_ID?: string;
   COLLECTOR_SHARED_SECRET?: string;
+  WORKER_PUBLIC_URL?: string;
   GPT_ANALYSIS_ENABLED?: string;
   OPENAI_API_KEY?: string;
   AI_MONTHLY_BUDGET_USD?: string;

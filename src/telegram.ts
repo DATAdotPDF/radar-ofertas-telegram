@@ -38,6 +38,32 @@ export async function replyTelegram(env: Env, chatId: string, text: string): Pro
   await callTelegram(env, "sendMessage", { chat_id: chatId, text, disable_web_page_preview: true });
 }
 
+export async function ensureTelegramWebhook(env: Env): Promise<boolean> {
+  if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_WEBHOOK_SECRET || !env.WORKER_PUBLIC_URL) return false;
+  const target = `${env.WORKER_PUBLIC_URL.replace(/\/$/, "")}/telegram/webhook`;
+  const base = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}`;
+  try {
+    const infoResponse = await fetch(`${base}/getWebhookInfo`);
+    const info = await infoResponse.json() as { ok?: boolean; result?: { url?: string } };
+    if (info.ok && info.result?.url === target) return true;
+    const response = await fetch(`${base}/setWebhook`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        url: target,
+        secret_token: env.TELEGRAM_WEBHOOK_SECRET,
+        allowed_updates: ["message"],
+        drop_pending_updates: false
+      })
+    });
+    const result = await response.json() as { ok?: boolean };
+    return result.ok === true;
+  } catch (error) {
+    console.error("Não foi possível configurar o webhook do Telegram", error);
+    return false;
+  }
+}
+
 export async function sendOfferAlert(env: Env, chatId: string, candidate: AlertCandidate): Promise<string | null> {
   const { offer } = candidate;
   const details = [
