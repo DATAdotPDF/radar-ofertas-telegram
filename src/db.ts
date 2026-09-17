@@ -40,16 +40,16 @@ export async function upsertTelegramUser(env: Env, telegramId: string, chatId: s
   await env.DB.prepare(`
     INSERT INTO telegram_users (id, tenant_id, telegram_user_id, chat_id, role, is_active, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'))
-    ON CONFLICT(tenant_id, telegram_user_id) DO UPDATE SET
+    ON CONFLICT(telegram_user_id) DO UPDATE SET
       chat_id = excluded.chat_id,
       role = CASE WHEN excluded.role = 'owner' THEN 'owner' ELSE telegram_users.role END,
       updated_at = datetime('now')
-  `).bind(id(), DEFAULT_TENANT, telegramId, chatId, isOwner ? "owner" : "viewer").run();
+  `).bind(id(), DEFAULT_TENANT, telegramId, chatId, isOwner ? "owner" : "subscriber").run();
   if (isOwner) {
     await env.DB.prepare(`
-      INSERT INTO destinations (id, tenant_id, kind, target, is_active, created_at)
-      VALUES (?, ?, 'telegram_chat', ?, 1, datetime('now'))
-      ON CONFLICT(tenant_id, kind, target) DO UPDATE SET is_active = 1
+      INSERT INTO destinations (id, tenant_id, chat_id, kind, active, created_at)
+      VALUES (?, ?, ?, 'private', 1, datetime('now'))
+      ON CONFLICT(tenant_id, chat_id) DO UPDATE SET active = 1
     `).bind(id(), DEFAULT_TENANT, chatId).run();
   }
 }
@@ -182,9 +182,9 @@ export async function recordAlert(env: Env, offerId: string, ruleId: string, tri
 }
 
 export async function telegramDestinations(env: Env): Promise<string[]> {
-  const result = await rows<{ target: string }>(env.DB.prepare("SELECT target FROM destinations WHERE tenant_id = ? AND kind = 'telegram_chat' AND is_active = 1")
+  const result = await rows<{ chat_id: string }>(env.DB.prepare("SELECT chat_id FROM destinations WHERE tenant_id = ? AND active = 1")
     .bind(DEFAULT_TENANT));
-  return result.map((item) => item.target);
+  return result.map((item) => item.chat_id);
 }
 
 export async function recentOffers(env: Env, limit = 10): Promise<Array<{ title: string; url: string; price_cents: number; source_name: string; observed_at: string }>> {

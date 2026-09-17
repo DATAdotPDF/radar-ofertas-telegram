@@ -46,9 +46,26 @@ export async function ensureTelegramWebhook(env: Env): Promise<TelegramWebhookSt
   const base = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}`;
   try {
     const infoResponse = await fetch(`${base}/getWebhookInfo`);
-    const info = await infoResponse.json() as { ok?: boolean; result?: { url?: string } };
+    const info = await infoResponse.json() as {
+      ok?: boolean;
+      result?: {
+        url?: string;
+        pending_update_count?: number;
+        last_error_date?: number;
+        last_error_message?: string;
+      };
+    };
     if (!infoResponse.ok) return "telegram_token_rejected";
-    if (info.ok && info.result?.url === target) return "configured";
+    if (info.ok && info.result?.url === target) {
+      if (info.result.last_error_message || info.result.pending_update_count) {
+        console.warn("Diagnóstico de entrega do Telegram", {
+          pendingUpdates: info.result.pending_update_count ?? 0,
+          lastErrorAt: info.result.last_error_date ?? null,
+          lastError: info.result.last_error_message ?? null
+        });
+      }
+      return "configured";
+    }
     const response = await fetch(`${base}/setWebhook`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
