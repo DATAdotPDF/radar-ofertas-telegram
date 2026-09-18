@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mapMeliCatalogProduct, scanQueries, shouldPauseSource, sourceQueries } from "../src/sources";
+import { balancedScanQueries, mapMeliCatalogProduct, scanQueries, shouldPauseSource, sourceQueries } from "../src/sources";
 import type { SourceConfig, WatchRule } from "../src/types";
 
 const rule: WatchRule = {
@@ -22,6 +22,16 @@ describe("consultas do Mercado Livre", () => {
   it("limita o total de pesquisas por execução", () => {
     const many = Array.from({ length: 20 }, (_, index) => ({ ...rule, id: String(index), include_terms_json: `["produto ${index}"]` }));
     expect(scanQueries(many)).toHaveLength(12);
+  });
+
+  it("equilibra uma consulta por régua e alterna o termo a cada hora", () => {
+    const rules = [
+      rule,
+      { ...rule, id: "games", include_terms_json: '["zelda", "mario"]' },
+      { ...rule, id: "controles", include_terms_json: '["joy-con 2", "pro controller"]' }
+    ];
+    expect(balancedScanQueries(rules, 0)).toEqual(["nintendo switch 2", "zelda", "joy-con 2"]);
+    expect(balancedScanQueries(rules, 1)).toEqual(["mario", "pro controller", "switch 2 bundle"]);
   });
 
   it("pausa uma fonte que recusa ou limita requisições", () => {

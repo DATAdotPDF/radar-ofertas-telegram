@@ -158,7 +158,9 @@ Envie `/conectar_ml` ao bot e conclua a autorização.
 
 ### 5. Amazon
 
-Entre no Amazon Associados Brasil. Após a aprovação final, abra `Ferramentas` e `Creators API`. Crie um aplicativo e uma credencial.
+Entre no Amazon Associados Brasil. A Creators API exige uma conta aprovada. O acesso à PA API também exige pelo menos 10 vendas qualificadas nos últimos 30 dias. Depois da liberação, abra `Ferramentas` e `API para Creators`. Crie um aplicativo e uma credencial. A análise das credenciais pode levar até 48 horas.
+
+O ID de associado pode ser configurado antes das credenciais. A fonte continua como `pending` e o Mercado Livre segue funcionando sozinho.
 
 Cadastre:
 
@@ -193,6 +195,8 @@ Teto: 4500,00
 ```
 
 As duas APIs passam a pesquisar esses termos a cada hora.
+
+Para respeitar o limite de requisições do Cloudflare Workers, cada rodada escolhe uma consulta de cada régua, alterna os termos conforme a hora e processa até seis ofertas por fonte. Isso mantém todas as réguas em rotação sem concentrar dezenas de chamadas em uma única execução.
 
 ## Execução 24/7
 

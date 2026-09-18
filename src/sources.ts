@@ -10,6 +10,11 @@ export interface ScanResult {
   error?: string;
 }
 
+const MAX_QUERIES_PER_SCAN = 4;
+const MAX_OFFERS_PER_QUERY = 2;
+const MAX_OFFERS_PER_SOURCE = 6;
+const MAX_USED_DESCRIPTIONS = 2;
+
 export function sourceQueries(rule: WatchRule): string[] {
   try {
     const terms = JSON.parse(rule.include_terms_json) as unknown;
@@ -28,6 +33,20 @@ export function sourceQueries(rule: WatchRule): string[] {
 
 export function scanQueries(rules: WatchRule[], limit = 12): string[] {
   return [...new Set(rules.flatMap(sourceQueries))].slice(0, limit);
+}
+
+export function balancedScanQueries(rules: WatchRule[], hour = new Date().getUTCHours(), limit = MAX_QUERIES_PER_SCAN): string[] {
+  if (!rules.length || limit <= 0) return [];
+  const ruleOffset = (hour * limit) % rules.length;
+  const orderedRules = [...rules.slice(ruleOffset), ...rules.slice(0, ruleOffset)];
+  const queries: string[] = [];
+  for (const rule of orderedRules) {
+    const terms = sourceQueries(rule);
+    const query = terms[hour % terms.length];
+    if (query && !queries.includes(query)) queries.push(query);
+    if (queries.length >= limit) break;
+  }
+  return queries;
 }
 
 export function shouldPauseSource(error: string): boolean {
@@ -71,7 +90,7 @@ async function mercadoLivreDescription(itemId: string, accessToken: string): Pro
   }
 }
 
-async function mapListing(source: SourceConfig, item: Record<string, unknown>, accessToken: string): Promise<SourceOffer | null> {
+function mapListing(source: SourceConfig, item: Record<string, unknown>): SourceOffer | null {
   const priceCents = asCents(item.price);
   const originalPriceCents = asCents(item.original_price);
   const permalink = typeof item.permalink === "string" ? item.permalink : null;
@@ -84,7 +103,7 @@ async function mapListing(source: SourceConfig, item: Record<string, unknown>, a
     sourceId: source.id,
     externalId,
     title,
-    description: itemCondition === "used" ? await mercadoLivreDescription(externalId, accessToken) : undefined,
+    description: undefined,
     url: permalink,
     imageUrl: typeof item.thumbnail === "string" ? item.thumbnail : undefined,
     imageAuthorized: Boolean(source.image_authorized),
@@ -107,7 +126,7 @@ async function mercadoLivreListingSearch(source: SourceConfig, query: string, ac
   });
   if (!response.ok) throw new Error(`LISTING_SEARCH_${response.status}`);
   const data = await response.json() as { results?: Array<Record<string, unknown>> };
-  const offers = await Promise.all((data.results ?? []).map((item) => mapListing(source, item, accessToken)));
+  const offers = (data.results ?? []).map((item) => mapListing(source, item));
   return offers.filter((offer): offer is SourceOffer => offer !== null);
 }
 
@@ -140,12 +159,12 @@ export function mapMeliCatalogProduct(source: SourceConfig, product: Record<stri
 }
 
 async function mercadoLivreCatalogSearch(source: SourceConfig, query: string, accessToken: string): Promise<SourceOffer[]> {
-  const response = await fetch(`https://api.mercadolibre.com/products/search?status=active&site_id=MLB&q=${encodeURIComponent(query)}&limit=5`, {
+  const response = await fetch(`https://api.mercadolibre.com/products/search?status=active&site_id=MLB&q=${encodeURIComponent(query)}&limit=3`, {
     headers: { Accept: "application/json", Authorization: `Bearer ${accessToken}` }
   });
   if (!response.ok) throw new Error(`API Mercado Livre retornou ${response.status}`);
   const data = await response.json() as { results?: Array<{ id?: unknown }> };
-  const ids = (data.results ?? []).map((value) => value.id).filter((value): value is string => typeof value === "string");
+  const ids = (data.results ?? []).map((value) => value.id).filter((value): value is string => typeof value === "string").slice(0, MAX_OFFERS_PER_QUERY);
   const products = await Promise.all(ids.map(async (id) => {
     const detail = await fetch(`https://api.mercadolibre.com/products/${encodeURIComponent(id)}`, {
       headers: { Accept: "application/json", Authorization: `Bearer ${accessToken}` }
@@ -160,13 +179,18 @@ async function mercadoLivre(env: Env, source: SourceConfig, queries: string[]): 
   const mapped: SourceOffer[] = [];
   for (const query of queries) {
     try {
-      mapped.push(...await mercadoLivreListingSearch(source, query, accessToken));
+      mapped.push(...(await mercadoLivreListingSearch(source, query, accessToken)).slice(0, MAX_OFFERS_PER_QUERY));
     } catch (error) {
       if (!(error instanceof Error) || error.message !== "LISTING_SEARCH_403") throw error;
-      mapped.push(...await mercadoLivreCatalogSearch(source, query, accessToken));
+      mapped.push(...(await mercadoLivreCatalogSearch(source, query, accessToken)).slice(0, MAX_OFFERS_PER_QUERY));
     }
   }
-  return [...new Map(mapped.map((offer) => [`${offer.sourceId}:${offer.externalId}`, offer])).values()];
+  const selected = [...new Map(mapped.map((offer) => [`${offer.sourceId}:${offer.externalId}`, offer])).values()].slice(0, MAX_OFFERS_PER_SOURCE);
+  const used = selected.filter((offer) => offer.condition === "used").slice(0, MAX_USED_DESCRIPTIONS);
+  await Promise.all(used.map(async (offer) => {
+    offer.description = await mercadoLivreDescription(offer.externalId, accessToken);
+  }));
+  return selected;
 }
 
 async function activateConfiguredSources(env: Env): Promise<void> {
@@ -186,7 +210,7 @@ async function activateConfiguredSources(env: Env): Promise<void> {
 export async function scanAllowedSources(env: Env, rules: WatchRule[]): Promise<ScanResult[]> {
   await activateConfiguredSources(env);
   const sources = await activeSources(env);
-  const queries = scanQueries(rules);
+  const queries = balancedScanQueries(rules);
   const results: ScanResult[] = [];
   for (const source of sources) {
     try {
