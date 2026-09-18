@@ -16,7 +16,6 @@
   "devDependencies": {
     "@cloudflare/workers-types": "latest",
     "@types/node": "latest",
-    "playwright": "latest",
     "typescript": "latest",
     "vitest": "latest",
     "wrangler": "latest"

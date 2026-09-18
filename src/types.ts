@@ -7,7 +7,6 @@ export interface Env {
   TELEGRAM_BOT_TOKEN?: string;
   TELEGRAM_WEBHOOK_SECRET?: string;
   OWNER_TELEGRAM_USER_ID?: string;
-  COLLECTOR_SHARED_SECRET?: string;
   WORKER_PUBLIC_URL?: string;
   GPT_ANALYSIS_ENABLED?: string;
   OPENAI_API_KEY?: string;
@@ -15,7 +14,10 @@ export interface Env {
   MELI_CLIENT_ID?: string;
   MELI_CLIENT_SECRET?: string;
   MELI_TOKEN_ENCRYPTION_KEY?: string;
-  AUTHORIZED_FEED_HOSTS?: string;
+  AMAZON_CREATORS_CREDENTIAL_ID?: string;
+  AMAZON_CREATORS_CREDENTIAL_SECRET?: string;
+  AMAZON_CREATORS_CREDENTIAL_VERSION?: string;
+  AMAZON_ASSOCIATE_TAG?: string;
 }
 
 export interface WatchRule {
@@ -29,6 +31,7 @@ export interface WatchRule {
   max_price_cents: number | null;
   min_used_score: number;
   alert_limit: number;
+  min_discount_percent: number;
   is_paused: number;
   deleted_at: string | null;
 }
@@ -58,6 +61,8 @@ export interface SourceOffer {
   officialStore?: boolean;
   condition?: OfferCondition;
   priceCents: number;
+  originalPriceCents?: number;
+  discountPercent?: number;
   pixPriceCents?: number;
   installmentText?: string;
   shippingText?: string;

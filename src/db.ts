@@ -66,8 +66,8 @@ export async function getUserSession(env: Env, telegramId: string): Promise<{ se
 
 export async function createRule(env: Env, rule: { name: string; terms: string[]; maxPriceCents: number | null }): Promise<void> {
   await env.DB.prepare(`
-    INSERT INTO watch_rules (id, tenant_id, name, include_terms_json, exclude_terms_json, category, condition_scope, max_price_cents, min_used_score, alert_limit, is_paused, created_at, updated_at)
-    VALUES (?, ?, ?, ?, '[]', 'custom', 'new,used,refurbished,unknown', ?, 70, 3, 0, datetime('now'), datetime('now'))
+    INSERT INTO watch_rules (id, tenant_id, name, include_terms_json, exclude_terms_json, category, condition_scope, max_price_cents, min_used_score, alert_limit, min_discount_percent, is_paused, created_at, updated_at)
+    VALUES (?, ?, ?, ?, '[]', 'custom', 'new,used,refurbished,unknown', ?, 70, 3, 5, 0, datetime('now'), datetime('now'))
   `).bind(id(), DEFAULT_TENANT, rule.name, JSON.stringify(rule.terms), rule.maxPriceCents).run();
 }
 
@@ -134,8 +134,8 @@ export async function upsertOffer(env: Env, incoming: SourceOffer, category: str
     await env.DB.prepare(`INSERT INTO offers (id, tenant_id, source_id, external_id, title, description, url, image_url, image_authorized, seller_name, seller_reputation, official_store, condition, canonical_key, trailer_url, warranty, invoice, first_seen_at, last_seen_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .bind(offerId, DEFAULT_TENANT, incoming.sourceId, incoming.externalId, data.title, data.description, data.url, data.image_url, data.image_authorized, data.seller_name, data.seller_reputation, data.official_store, data.condition, data.canonical_key, data.trailer_url, data.warranty, data.invoice, now, now).run();
   }
-  await env.DB.prepare(`INSERT INTO offer_observations (id, offer_id, price_cents, pix_price_cents, installment_text, shipping_text, coupon_text, stock_status, observed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-    .bind(id(), offerId, incoming.priceCents, incoming.pixPriceCents ?? null, incoming.installmentText ?? null, incoming.shippingText ?? null, incoming.couponText ?? null, incoming.stockStatus ?? "unknown", now).run();
+  await env.DB.prepare(`INSERT INTO offer_observations (id, offer_id, price_cents, original_price_cents, discount_percent, pix_price_cents, installment_text, shipping_text, coupon_text, stock_status, observed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .bind(id(), offerId, incoming.priceCents, incoming.originalPriceCents ?? null, incoming.discountPercent ?? null, incoming.pixPriceCents ?? null, incoming.installmentText ?? null, incoming.shippingText ?? null, incoming.couponText ?? null, incoming.stockStatus ?? "unknown", now).run();
   return {
     previousPriceCents: previous?.price_cents ?? null,
     offer: { ...incoming, id: offerId, canonicalKey: key, firstSeenAt: typeof existing?.first_seen_at === "string" ? existing.first_seen_at : now, lastSeenAt: now }

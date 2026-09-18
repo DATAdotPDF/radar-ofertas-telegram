@@ -137,6 +137,7 @@ export async function completeMeliAuthorization(env: Env, code: string | null, s
     body
   }));
   await storeToken(env, token);
+  await env.DB.prepare("UPDATE source_configs SET status='active', last_error=NULL, failure_count=0, updated_at=datetime('now') WHERE id='mercado-livre' AND tenant_id='default'").run();
   await env.DB.prepare("DELETE FROM oauth_sessions WHERE provider='mercado_livre' AND state=?").bind(state).run();
 }
 

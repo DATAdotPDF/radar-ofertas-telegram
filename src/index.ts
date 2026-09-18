@@ -1,9 +1,10 @@
 import {
   activeRules, alertMaySend, allRules, allSources, createRule, getUserSession, pauseRule, priceContext,
   quarantineOffer, quarantinedOffers, recentOffers, recordAlert, removeRule, setUserSession, statusSummary,
-  sourceOutcome, telegramDestinations, updateRule, upsertOffer, upsertTelegramUser
+  telegramDestinations, updateRule, upsertOffer, upsertTelegramUser
 } from "./db";
 import { assessUsedOffer, evaluateTriggers, formatBRL, matchesRule, scoreCandidate } from "./scoring";
+import { amazonConfigurationState } from "./amazon";
 import { completeMeliAuthorization, createMeliAuthorizationUrl, meliOAuthState } from "./meli";
 import { scanAllowedSources } from "./sources";
 import { ensureTelegramWebhook, replyTelegram, sendOfferAlert, validTelegramWebhook } from "./telegram";
@@ -13,11 +14,6 @@ const MAX_ALERTS_PER_RULE = 3;
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json; charset=utf-8" } });
-}
-
-function authorizedInternal(request: Request, env: Env): boolean {
-  const provided = request.headers.get("X-Collector-Secret");
-  return Boolean(provided && env.COLLECTOR_SHARED_SECRET && provided === env.COLLECTOR_SHARED_SECRET);
 }
 
 function owner(env: Env, telegramUserId: string): boolean {
@@ -156,7 +152,7 @@ async function handleCommand(env: Env, message: { chat: { id: number }; from?: {
   if (text === "/status") {
     const status = await statusSummary(env);
     const meli = await meliOAuthState(env);
-    await replyTelegram(env, chatId, `Réguas ativas: ${status.activeRules}\nFontes ativas: ${status.activeSources}\nOfertas salvas: ${status.offers}\nQuarentena: ${status.quarantined}\nMercado Livre: ${meli}\nLuna: ${env.GPT_ANALYSIS_ENABLED === "true" ? "ligado" : "desligado"}`);
+    await replyTelegram(env, chatId, `Réguas ativas: ${status.activeRules}\nFontes ativas: ${status.activeSources}\nOfertas salvas: ${status.offers}\nQuarentena: ${status.quarantined}\nMercado Livre: ${meli}\nAmazon: ${amazonConfigurationState(env)}\nLuna: ${env.GPT_ANALYSIS_ENABLED === "true" ? "ligado" : "desligado"}`);
     return;
   }
   if (text === "/quarentena") {
@@ -209,26 +205,6 @@ export default {
         return new Response("Mercado Livre autorizado. Você já pode voltar ao Telegram.", { headers: { "Content-Type": "text/plain; charset=utf-8" } });
       } catch {
         return new Response("Não foi possível concluir a autorização. Volte ao Telegram e gere um novo link com /conectar_ml.", { status: 400, headers: { "Content-Type": "text/plain; charset=utf-8" } });
-      }
-    }
-    if (url.pathname.startsWith("/internal/")) {
-      if (!authorizedInternal(request, env)) return new Response("forbidden", { status: 403 });
-      if (request.method === "GET" && url.pathname === "/internal/rules") return json({ rules: await activeRules(env), sources: await allSources(env) });
-      if (request.method === "POST" && url.pathname === "/internal/source-outcome") {
-        const data = await request.json() as { sourceId?: unknown; ok?: unknown; error?: unknown; pause?: unknown };
-        if (typeof data.sourceId !== "string" || !/^[a-z0-9-]{1,80}$/i.test(data.sourceId)) return json({ error: "sourceId inválido" }, 400);
-        await sourceOutcome(
-          env,
-          data.sourceId,
-          data.ok === true,
-          typeof data.error === "string" ? data.error.slice(0, 500) : null,
-          data.pause === true
-        );
-        return json({ ok: true });
-      }
-      if (request.method === "POST" && url.pathname === "/internal/ingest") {
-        const data = await request.json() as { offers?: SourceOffer[] };
-        return json(await ingestOffers(env, Array.isArray(data.offers) ? data.offers.slice(0, 500) : []));
       }
     }
     return new Response("not found", { status: 404 });

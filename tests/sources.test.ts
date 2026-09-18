@@ -1,20 +1,27 @@
 import { describe, expect, it } from "vitest";
-import { authorizedFeedUrl, parseAuthorizedFeed, shouldPauseSource, sourceQueries } from "../src/sources";
+import { mapMeliCatalogProduct, scanQueries, shouldPauseSource, sourceQueries } from "../src/sources";
 import type { SourceConfig, WatchRule } from "../src/types";
 
 const rule: WatchRule = {
   id: "switch2", tenant_id: "default", name: "Console Switch 2 e bundles", include_terms_json: '["nintendo switch 2", "switch 2 bundle", "nintendo switch 2"]',
   exclude_terms_json: "[]", category: "console", condition_scope: "new,used", max_price_cents: null,
-  min_used_score: 70, alert_limit: 3, is_paused: 0, deleted_at: null
+  min_used_score: 70, alert_limit: 3, min_discount_percent: 5, is_paused: 0, deleted_at: null
 };
 
-describe("consultas das fontes", () => {
-  it("pesquisa os termos da régua, sem repetir consultas", () => {
+const source: SourceConfig = {
+  id: "mercado-livre", tenant_id: "default", name: "Mercado Livre", kind: "api", status: "active",
+  policy_url: null, search_url_template: null, image_authorized: 0, notes: null
+};
+
+describe("consultas do Mercado Livre", () => {
+  it("pesquisa os termos da régua sem repetir consultas", () => {
     expect(sourceQueries(rule)).toEqual(["nintendo switch 2", "switch 2 bundle"]);
+    expect(scanQueries([rule, { ...rule, id: "2" }])).toEqual(["nintendo switch 2", "switch 2 bundle"]);
   });
 
-  it("usa o nome da régua se o histórico de termos estiver inválido", () => {
-    expect(sourceQueries({ ...rule, include_terms_json: "{" })).toEqual([rule.name]);
+  it("limita o total de pesquisas por execução", () => {
+    const many = Array.from({ length: 20 }, (_, index) => ({ ...rule, id: String(index), include_terms_json: `["produto ${index}"]` }));
+    expect(scanQueries(many)).toHaveLength(12);
   });
 
   it("pausa uma fonte que recusa ou limita requisições", () => {
@@ -23,23 +30,16 @@ describe("consultas das fontes", () => {
     expect(shouldPauseSource("erro de rede")).toBe(false);
   });
 
-  it("aceita apenas HTTPS em hosts liberados", () => {
-    const env = { AUTHORIZED_FEED_HOSTS: "feeds.example.com" };
-    expect(authorizedFeedUrl(env, "https://feeds.example.com/ofertas?q=switch")).not.toBeNull();
-    expect(authorizedFeedUrl(env, "https://outro.example.com/ofertas")).toBeNull();
-    expect(authorizedFeedUrl(env, "http://feeds.example.com/ofertas")).toBeNull();
-  });
-
-  it("valida e normaliza ofertas de um feed autorizado", () => {
-    const source: SourceConfig = {
-      id: "feed-parceiro", tenant_id: "default", name: "Feed parceiro", kind: "api", status: "active",
-      policy_url: null, search_url_template: null, image_authorized: 1, notes: null
-    };
-    const offers = parseAuthorizedFeed(source, { offers: [{
-      externalId: "abc", title: "Nintendo Switch 2", url: "https://loja.example.com/abc",
-      imageUrl: "https://loja.example.com/abc.jpg", imageAuthorized: true, priceCents: 249900, condition: "new"
-    }, { title: "incompleta" }] });
-    expect(offers).toHaveLength(1);
-    expect(offers[0]).toMatchObject({ sourceId: "feed-parceiro", externalId: "abc", priceCents: 249900, imageAuthorized: true });
+  it("normaliza a oferta vencedora do catálogo", () => {
+    const offer = mapMeliCatalogProduct(source, {
+      name: "Nintendo Switch 2",
+      permalink: "https://www.mercadolivre.com.br/p/MLB123",
+      pictures: [{ url: "https://http2.mlstatic.com/item.jpg" }],
+      buy_box_winner: {
+        item_id: "MLB999", price: 2699, original_price: 2999, seller_id: 123,
+        shipping: { free_shipping: true }, seller: { reputation_level_id: "GREEN" }
+      }
+    });
+    expect(offer).toMatchObject({ externalId: "MLB999", priceCents: 269900, originalPriceCents: 299900, discountPercent: 10, sellerReputation: 100 });
   });
 });

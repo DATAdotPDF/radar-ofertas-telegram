@@ -120,6 +120,10 @@ export function evaluateTriggers(
     triggers.push("target_price");
     reasons.push(`abaixo do teto de ${formatBRL(rule.max_price_cents)}`);
   }
+  if ((offer.discountPercent ?? 0) >= rule.min_discount_percent) {
+    triggers.push("advertised_discount");
+    reasons.push(`desconto anunciado de ${offer.discountPercent}%`);
+  }
   if (context.previousPriceCents && offer.priceCents <= context.previousPriceCents * 0.95) {
     triggers.push("price_drop");
     reasons.push("queda de pelo menos 5% no mesmo anúncio");

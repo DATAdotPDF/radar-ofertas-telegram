@@ -110,6 +110,8 @@ export function offerAlertText(candidate: AlertCandidate): string {
     `Loja/vendedor: ${escapeHtml(offer.sellerName ?? offer.sourceId)}`,
     offer.pixPriceCents ? `PIX: <b>${formatBRL(offer.pixPriceCents)}</b>` : null,
     `À vista: <b>${formatBRL(offer.priceCents)}</b>`,
+    offer.originalPriceCents ? `Preço anterior: ${formatBRL(offer.originalPriceCents)}` : null,
+    offer.discountPercent ? `Desconto: <b>${offer.discountPercent}%</b>` : null,
     offer.installmentText ? `Parcelamento: ${escapeHtml(offer.installmentText)}` : null,
     offer.shippingText ? `Frete: ${escapeHtml(offer.shippingText)}` : null,
     summary ? `Resumo: ${escapeHtml(summary)}` : null,

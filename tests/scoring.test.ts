@@ -4,7 +4,7 @@ import type { SourceOffer, WatchRule } from "../src/types";
 
 const rule: WatchRule = {
   id: "rule", tenant_id: "default", name: "Switch 2", include_terms_json: '["switch 2", "joy-con 2"]', exclude_terms_json: '["caixa"]',
-  category: "console", condition_scope: "new,used", max_price_cents: 300000, min_used_score: 70, alert_limit: 3, is_paused: 0, deleted_at: null
+  category: "console", condition_scope: "new,used", max_price_cents: 300000, min_used_score: 70, alert_limit: 3, min_discount_percent: 5, is_paused: 0, deleted_at: null
 };
 
 const usedOffer: SourceOffer = {
@@ -42,6 +42,15 @@ describe("filtro e ranking", () => {
       historicalMinimumCents: 260000, historicalSamples: 4
     }, assessment);
     expect(result.triggers).toEqual(expect.arrayContaining(["target_price", "price_drop", "below_median", "new_low", "quality_used"]));
+  });
+
+  it("dispara no primeiro encontro quando a loja informa desconto suficiente", () => {
+    const offer = { ...usedOffer, condition: "new" as const, discountPercent: 12, originalPriceCents: 320000 };
+    const result = evaluateTriggers(offer, rule, {
+      previousPriceCents: null, median30Cents: null, comparableItems: 0, comparableSources: 0,
+      historicalMinimumCents: null, historicalSamples: 0
+    }, assessUsedOffer(offer, null));
+    expect(result.triggers).toContain("advertised_discount");
   });
 
   it("só repete alerta dentro de 24 horas com nova queda de 5%", () => {

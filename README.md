@@ -1,117 +1,102 @@
-# Radar configurável de ofertas pelo Telegram
+# Radar de ofertas Mercado Livre e Amazon pelo Telegram
 
-Bot pessoal para encontrar ofertas, quedas de preço, novos menores preços e anúncios usados de boa qualidade.
+Bot configurável para pesquisar produtos no Mercado Livre e na Amazon Brasil a cada hora.
 
-O foco inicial é Nintendo Switch 2. As réguas podem ser trocadas pelo Telegram para pesquisar qualquer produto.
+O foco inicial é Nintendo Switch 2. Você pode trocar as réguas pelo Telegram para pesquisar qualquer item.
 
-O Worker roda na nuvem a cada hora. Seu computador pode ficar desligado.
+O Worker roda no Cloudflare 24 horas por dia. Seu computador pode ficar desligado.
 
-## Estado deste repositório
+## Fontes automáticas
 
-- Bot do Telegram com comandos privados para o administrador.
-- Quatro réguas ativas: console e bundles, jogos físicos, acessórios e jogos digitais.
-- Até três alertas por régua em cada busca.
-- Histórico de preços, mediana de 30 dias, queda de 5% e menor preço.
-- Filtro de usados e seminovos com nota mínima e quarentena.
-- Mercado Livre por OAuth. A fonte pode ficar pausada quando a API responder 401, 403 ou 429.
-- Conector genérico para APIs e feeds JSON autorizados.
-- Coletor com Playwright para páginas que aceitem navegação automática.
-- GPT-5.6 Luna preparado e desligado por padrão.
-- Testes automáticos em cada envio ao GitHub.
+### Mercado Livre
 
-O serviço horário fica ativo 24/7. Alertas dependem de ao menos uma fonte ativa que devolva ofertas válidas.
+O Radar usa OAuth e a API oficial do Mercado Livre.
 
-## Como funciona
+Ele tenta a busca de anúncios. Se esse recurso responder 403, usa a busca de catálogo e a oferta vencedora do produto.
 
-1. O agendamento do Cloudflare inicia uma busca no minuto 17 de cada hora.
-2. O Worker consulta APIs e feeds ativos.
-3. O GitHub Actions pode consultar páginas liberadas com Playwright no mesmo horário.
-4. O bot normaliza título, preço, condição, vendedor e frete.
-5. O D1 guarda o histórico e compara produtos equivalentes.
-6. O Telegram recebe as três melhores ofertas de cada régua.
+Os links retornados pela API são links normais do produto. O programa Mercado Livre Afiliados documenta a criação de links pela Central ou Barra de Afiliados, mas não publica uma API para transformar links automaticamente. O Radar não acessa recursos privados do portal.
 
-Console simples não é comparado com bundle. Edição comum não é comparada com edição de colecionador.
+Documentação:
 
-## Gatilhos de alerta
+- [Itens e buscas](https://developers.mercadolivre.com.br/itens-e-buscas)
+- [Buscador de produtos](https://developers.mercadolivre.com.br/buscador-de-produtos)
+- [Gerador de links de afiliado](https://www.mercadolivre.com.br/l/afiliados-gere-seus-links)
 
+### Amazon Brasil
+
+O Radar usa a Amazon Creators API, sucessora da PA-API 5.0.
+
+A API pesquisa por palavras-chave, informa preço, desconto, condição, estoque, vendedor e imagem. O `detailPageURL` já contém a tag do Associado.
+
+Documentação:
+
+- [Cadastro na Creators API](https://affiliate-program.amazon.com/creatorsapi/docs/en-us/onboarding/register-for-creators-api)
+- [Busca de produtos](https://affiliate-program.amazon.com/creatorsapi/docs/en-us/api-reference/operations/search-items)
+- [Autenticação OAuth](https://affiliate-program.amazon.com/creatorsapi/docs/en-us/get-started/using-curl)
+
+A Amazon exige aprovação final no programa e vendas qualificadas antes de liberar a Creators API.
+
+## Fluxo horário
+
+1. O Cloudflare inicia a busca no minuto 17 de cada hora.
+2. O bot reúne até 12 termos únicos das réguas ativas.
+3. As duas APIs pesquisam esses termos.
+4. O código normaliza produto, edição, condição, preço e desconto.
+5. O D1 guarda o histórico.
+6. O Telegram recebe até três alertas por régua.
+
+Não há Playwright, scraping, CAPTCHA, cookie de navegador ou coleta manual.
+
+## Alertas
+
+O bot dispara quando encontra:
+
+- Desconto anunciado de pelo menos 5%.
 - Preço abaixo do teto da régua.
-- Queda de pelo menos 5%.
+- Queda de pelo menos 5% no mesmo anúncio.
 - Preço 10% abaixo da mediana de 30 dias.
 - Novo menor preço registrado.
-- Novo usado ou seminovo com nota mínima de 70.
+- Usado ou seminovo aprovado pelo filtro de qualidade.
 
-O mesmo anúncio só volta após nova queda de 5% ou 24 horas.
+O mesmo anúncio só volta após 24 horas ou nova queda de 5%.
 
-## Comandos do Telegram
+Exemplo:
+
+```text
+[Amazon Brasil] Zelda edição de colecionador
+Loja/vendedor: Amazon.com.br
+À vista: R$ 449,90
+Preço anterior: R$ 599,90
+Desconto: 25%
+Motivo: desconto anunciado de 25%
+```
+
+## Comandos
 
 - `/adicionar`: cria uma régua.
-- `/regras`: lista réguas e identificadores.
+- `/regras`: lista as réguas.
 - `/editar`: muda nome, termos e teto.
 - `/pausar`: pausa uma régua.
 - `/remover`: remove uma régua.
-- `/agora`: executa a busca.
+- `/agora`: executa uma busca.
 - `/ofertas`: mostra ofertas recentes.
-- `/fontes`: mostra o estado das fontes.
-- `/status`: mostra saúde do radar.
+- `/fontes`: mostra Mercado Livre e Amazon.
+- `/status`: mostra conexão das APIs.
 - `/quarentena`: mostra anúncios suspeitos.
-- `/conectar_ml`: abre a autorização do Mercado Livre.
+- `/conectar_ml`: autoriza o Mercado Livre.
 
-## Fontes
-
-O catálogo inclui Mercado Livre, Amazon, OLX, KaBuM!, Magalu, Fast Shop, Casas Bahia, Ponto, Americanas, Shopee, Carrefour, AliExpress, Eneba, Gamer Hut, TK Fortini, ShopB, MeuGameUsado, Zoom, Buscapé, GameHunter, SetupBarato, NT Deals, PSPrices, Nintendo Brasil, Pelando, Promobit, NintenDrops e Nintendo Barato.
-
-Cada fonte possui um estado:
-
-- `pending`: aguarda API, feed ou revisão de acesso.
-- `active`: participa das buscas automáticas.
-- `paused`: parou após recusa, limite ou decisão do administrador.
-- `blocked`: reservado para bloqueio manual.
-
-NT Deals e PSPrices apresentaram desafio anti-bot durante a revisão. Eles continuam como `pending`. Nintendo Brasil serve como referência oficial manual. OLX aguarda API, feed licenciado ou autorização.
-
-O Radar não resolve CAPTCHA, não reaproveita cookies privados e não tenta passar por 401, 403 ou 429. Nesses casos, pausa a fonte para você revisar.
-
-NintenDrops é apenas referência de formato. O projeto não copia mensagens nem coleta seu grupo.
-
-## Feed JSON autorizado
-
-Lojas e parceiros podem fornecer um feed simples. O Radar aceita apenas HTTPS e hosts presentes em `AUTHORIZED_FEED_HOSTS`.
-
-Exemplo curto:
-
-```json
-{
-  "offers": [
-    {
-      "externalId": "SKU-123",
-      "title": "Nintendo Switch 2",
-      "url": "https://loja.exemplo.com/SKU-123",
-      "priceCents": 249900,
-      "condition": "new"
-    }
-  ]
-}
-```
-
-Veja campos, limites e cadastro em [docs/FEED_SCHEMA.md](docs/FEED_SCHEMA.md).
-
-## Linguagens e arquivos
+## Tecnologias
 
 | Tecnologia | Uso |
 | --- | --- |
-| TypeScript | Worker, Telegram, filtros, banco e conectores. |
-| SQL | Estrutura e mudanças do banco D1. |
-| JavaScript | Coletor Playwright executado pelo GitHub Actions. |
-| TOML | Configuração do Worker e do cron. |
-| YAML | CI e coletor horário no GitHub Actions. |
+| TypeScript | Worker, Telegram, APIs, filtros e histórico. |
+| SQL | Banco D1 e mudanças de estrutura. |
+| TOML | Worker, banco e cron. |
+| YAML | Testes automáticos no GitHub Actions. |
 
-Node.js 22 executa testes e ferramentas locais. Cloudflare Workers executa o bot publicado.
+## Copiar para sua conta
 
-## Copiar e configurar para você
-
-### 1. Copie o repositório
-
-Você pode usar o botão `Fork` do GitHub ou clonar:
+### 1. Clone
 
 ```powershell
 git clone https://github.com/DATAdotPDF/radar-ofertas-telegram.git
@@ -121,67 +106,47 @@ npm run typecheck
 npm test
 ```
 
-O código usa a licença MIT. Você pode copiar, adaptar e publicar mantendo o aviso da licença.
+O projeto usa a licença MIT.
 
-### 2. Crie o bot no Telegram
+### 2. Crie seu bot
 
-Abra o BotFather, use `/newbot` e guarde o token. Não salve o token no Git.
+Abra o BotFather no Telegram e use `/newbot`. Guarde o token fora do Git.
 
 ### 3. Prepare o Cloudflare
-
-Entre na sua conta e autorize a ferramenta:
 
 ```powershell
 npx wrangler login
 npx wrangler d1 create radar-ofertas-db
 ```
 
-Copie o `database_id` recebido para `wrangler.toml`. Troque também o nome do Worker para evitar conflito.
-
-Aplique o banco:
+Copie o `database_id` recebido para `wrangler.toml`. Troque o nome do Worker.
 
 ```powershell
 npm run db:remote
-```
-
-### 4. Cadastre segredos
-
-Crie valores fortes e diferentes. O comando pede o valor sem gravá-lo no repositório.
-
-```powershell
 npx wrangler secret put TELEGRAM_BOT_TOKEN
 npx wrangler secret put TELEGRAM_WEBHOOK_SECRET
-npx wrangler secret put COLLECTOR_SHARED_SECRET
-```
-
-Publique a primeira versão:
-
-```powershell
 npm run deploy
 ```
 
-Copie a URL exibida pelo Cloudflare para `WORKER_PUBLIC_URL` em `wrangler.toml` e publique outra vez.
+Copie a URL publicada para `WORKER_PUBLIC_URL` no `wrangler.toml` e publique outra vez.
 
-Abra no navegador:
-
-```text
-https://SEU-WORKER.workers.dev/health
-```
-
-Isso registra o webhook do Telegram. Envie uma mensagem ao bot. Sem um proprietário configurado, ele informa seu ID numérico.
-
-Cadastre o ID e publique:
+Abra `https://SEU-WORKER.workers.dev/health`. Envie uma mensagem ao bot. Sem proprietário definido, ele informa seu ID numérico.
 
 ```powershell
 npx wrangler secret put OWNER_TELEGRAM_USER_ID
 npm run deploy
 ```
 
-Envie `/start` e `/status` no Telegram.
+### 4. Mercado Livre
 
-### 5. Ligue fontes
+Crie um aplicativo no DevCenter e use estas URLs:
 
-Para Mercado Livre, cadastre também:
+```text
+https://SEU-WORKER.workers.dev/oauth/mercadolivre/callback
+https://SEU-WORKER.workers.dev/webhooks/mercadolivre
+```
+
+Cadastre:
 
 ```powershell
 npx wrangler secret put MELI_CLIENT_ID
@@ -189,76 +154,72 @@ npx wrangler secret put MELI_CLIENT_SECRET
 npx wrangler secret put MELI_TOKEN_ENCRYPTION_KEY
 ```
 
-No DevCenter do Mercado Livre, use:
+Envie `/conectar_ml` ao bot e conclua a autorização.
 
-```text
-https://SEU-WORKER.workers.dev/oauth/mercadolivre/callback
-https://SEU-WORKER.workers.dev/webhooks/mercadolivre
+### 5. Amazon
+
+Entre no Amazon Associados Brasil. Após a aprovação final, abra `Ferramentas` e `Creators API`. Crie um aplicativo e uma credencial.
+
+Cadastre:
+
+```powershell
+npx wrangler secret put AMAZON_CREATORS_CREDENTIAL_ID
+npx wrangler secret put AMAZON_CREATORS_CREDENTIAL_SECRET
+npx wrangler secret put AMAZON_ASSOCIATE_TAG
 ```
 
-Depois envie `/conectar_ml` ao bot.
+A versão brasileira usa o endpoint de credencial `3.1`. O código assume esse valor. Se sua credencial mostrar outra versão:
 
-Para um feed JSON, configure a variável `AUTHORIZED_FEED_HOSTS` no Cloudflare e siga [docs/FEED_SCHEMA.md](docs/FEED_SCHEMA.md).
+```powershell
+npx wrangler secret put AMAZON_CREATORS_CREDENTIAL_VERSION
+```
 
-Mude uma fonte para `active` somente quando ela tiver URL válida e acesso confirmado.
+Publique novamente. A fonte Amazon muda de `pending` para `active` na próxima busca.
 
-### 6. Confirme o modo 24/7
+### 6. Troque os produtos
 
-O arquivo `wrangler.toml` contém:
+No Telegram:
+
+```text
+/adicionar
+```
+
+O bot pede nome, termos separados por vírgula e teto. Exemplo:
+
+```text
+Nome: Notebook Ryzen
+Termos: notebook ryzen 7, notebook 32gb ram, notebook oled
+Teto: 4500,00
+```
+
+As duas APIs passam a pesquisar esses termos a cada hora.
+
+## Execução 24/7
+
+O `wrangler.toml` contém:
 
 ```toml
 [triggers]
 crons = ["17 * * * *"]
 ```
 
-Esse cron roda uma vez por hora no Cloudflare. Não depende do seu PC.
+Use `/agora` para testar sem esperar o próximo horário.
 
-Confira no painel do Worker se o gatilho aparece em `Triggers`. Use `/agora` para um teste imediato.
+## GPT opcional
 
-## Coletor Playwright no GitHub
-
-O arquivo `.github/workflows/collector.yml` também roda a cada hora. Ele só trabalha quando a variável do repositório `COLLECTOR_ENABLED` vale `true`.
-
-Crie estes Secrets no GitHub:
-
-- `COLLECTOR_BASE_URL`: URL pública do Worker.
-- `COLLECTOR_SHARED_SECRET`: o mesmo valor guardado no Cloudflare.
-
-O coletor lê apenas fontes `active`, do tipo `browser`, com `search_url_template`. Ele procura dados estruturados `Product` em JSON-LD. Ao encontrar CAPTCHA, 401, 403 ou 429, pausa a fonte e segue para a próxima.
-
-## Formato do alerta
-
-```text
-[Loja] Produto e edição
-Cupom: ...
-Loja/vendedor: ...
-PIX: R$ ...
-À vista: R$ ...
-Frete: ...
-Resumo: ...
-Motivo: preço abaixo do teto
-Verificado: data e hora
-```
-
-O alerta pode incluir foto autorizada, link do anúncio e trailer oficial confirmado.
-
-## GPT-5.6 Luna
-
-`GPT_ANALYSIS_ENABLED=false` mantém o recurso desligado. Nenhuma chave OpenAI é exigida.
-
-Quando ativado, Luna resume descrição, edição, condição, acessórios e sinais de risco. O código continua responsável por preço, desconto, mediana, ranking e duplicatas.
+`GPT_ANALYSIS_ENABLED=false` mantém Luna desligado. Nenhuma chave OpenAI é necessária.
 
 ## Segurança
 
-O projeto segue o Cubo de McCumber. Leia [SECURITY.md](SECURITY.md).
+Leia [SECURITY.md](SECURITY.md).
 
-- Segredos ficam no Cloudflare ou GitHub Secrets.
-- `.env`, `.dev.vars`, tokens, relatórios e dependências ficam fora do Git.
-- O webhook do Telegram e as rotas internas exigem segredos distintos.
-- O feed aceita apenas HTTPS e hosts liberados.
-- Imagens permanecem por URL e só aparecem com permissão.
+- Segredos ficam no Cloudflare.
+- `.env`, `.dev.vars`, tokens e dependências ficam fora do Git.
+- Tokens OAuth do Mercado Livre ficam criptografados no D1.
+- A Amazon usa OAuth com token de uma hora.
+- O bot não acessa portais privados nem tenta contornar recusas.
 
-Antes de publicar uma mudança:
+Antes de publicar:
 
 ```powershell
 npm run typecheck
@@ -266,5 +227,3 @@ npm test
 git diff --check
 git status
 ```
-
-Nunca cole token, senha, cookie, chave ou URL assinada em issue, commit ou arquivo público.
