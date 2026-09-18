@@ -213,7 +213,13 @@ export async function statusSummary(env: Env): Promise<{ activeRules: number; ac
   return result ?? { activeRules: 0, activeSources: 0, offers: 0, quarantined: 0 };
 }
 
-export async function sourceOutcome(env: Env, sourceId: string, ok: boolean, error: string | null = null): Promise<void> {
-  await env.DB.prepare(`UPDATE source_configs SET last_success_at = CASE WHEN ? THEN datetime('now') ELSE last_success_at END, last_error = ?, failure_count = CASE WHEN ? THEN 0 ELSE failure_count + 1 END WHERE id = ? AND tenant_id = ?`)
-    .bind(ok ? 1 : 0, error, ok ? 1 : 0, sourceId, DEFAULT_TENANT).run();
+export async function sourceOutcome(env: Env, sourceId: string, ok: boolean, error: string | null = null, block = false): Promise<void> {
+  await env.DB.prepare(`
+    UPDATE source_configs
+    SET last_success_at = CASE WHEN ? THEN datetime('now') ELSE last_success_at END,
+        last_error = ?,
+        failure_count = CASE WHEN ? THEN 0 ELSE failure_count + 1 END,
+        status = CASE WHEN ? THEN 'blocked' ELSE status END
+    WHERE id = ? AND tenant_id = ?
+  `).bind(ok ? 1 : 0, error, ok ? 1 : 0, block ? 1 : 0, sourceId, DEFAULT_TENANT).run();
 }

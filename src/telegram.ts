@@ -5,6 +5,23 @@ function escapeHtml(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+function sourceLabel(sourceId: string): string {
+  const names: Record<string, string> = {
+    "mercado-livre": "Mercado Livre",
+    "amazon-br": "Amazon Brasil",
+    "shopee": "Shopee Brasil",
+    "eneba": "Eneba",
+    "olx": "OLX"
+  };
+  return names[sourceId] ?? sourceId;
+}
+
+function shortDescription(value: string | undefined): string | null {
+  const text = value?.replace(/\s+/g, " ").trim();
+  if (!text) return null;
+  return text.length > 180 ? `${text.slice(0, 177).trimEnd()}...` : text;
+}
+
 function sameSecret(actual: string | null, expected: string | undefined): boolean {
   if (!actual || !expected || actual.length !== expected.length) return false;
   let delta = 0;
@@ -84,20 +101,28 @@ export async function ensureTelegramWebhook(env: Env): Promise<TelegramWebhookSt
   }
 }
 
-export async function sendOfferAlert(env: Env, chatId: string, candidate: AlertCandidate): Promise<string | null> {
+export function offerAlertText(candidate: AlertCandidate): string {
   const { offer } = candidate;
+  const summary = shortDescription(offer.description);
   const details = [
-    `<b>${escapeHtml(offer.title)}</b>`,
+    `<b>[${escapeHtml(sourceLabel(offer.sourceId))}] ${escapeHtml(offer.title)}</b>`,
+    offer.couponText ? `Cupom: <b>${escapeHtml(offer.couponText)}</b>` : null,
     `Loja/vendedor: ${escapeHtml(offer.sellerName ?? offer.sourceId)}`,
     offer.pixPriceCents ? `PIX: <b>${formatBRL(offer.pixPriceCents)}</b>` : null,
     `À vista: <b>${formatBRL(offer.priceCents)}</b>`,
     offer.installmentText ? `Parcelamento: ${escapeHtml(offer.installmentText)}` : null,
     offer.shippingText ? `Frete: ${escapeHtml(offer.shippingText)}` : null,
-    offer.couponText ? `Cupom/condição: ${escapeHtml(offer.couponText)}` : null,
+    summary ? `Resumo: ${escapeHtml(summary)}` : null,
     `Motivo: ${escapeHtml(candidate.reasons.join("; "))}`,
     offer.condition === "used" || offer.condition === "refurbished" ? `Condição: nota ${candidate.used.score}/100` : null,
     `Verificado: ${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}`
   ].filter(Boolean).join("\n");
+  return details;
+}
+
+export async function sendOfferAlert(env: Env, chatId: string, candidate: AlertCandidate): Promise<string | null> {
+  const { offer } = candidate;
+  const details = offerAlertText(candidate);
   const markup = { inline_keyboard: [[{ text: "Abrir anúncio", url: offer.url }], ...(offer.trailerUrl ? [[{ text: "Trailer oficial", url: offer.trailerUrl }]] : [])] };
   const body = { chat_id: chatId, caption: details, parse_mode: "HTML", reply_markup: markup };
   const sent = offer.imageUrl && offer.imageAuthorized

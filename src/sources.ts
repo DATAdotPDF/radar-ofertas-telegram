@@ -32,6 +32,10 @@ export function sourceQueries(rule: WatchRule): string[] {
   return [rule.name];
 }
 
+export function shouldBlockSource(error: string): boolean {
+  return /\b(?:401|403|429)\b/.test(error);
+}
+
 function asCents(value: unknown): number | null {
   const number = typeof value === "number" ? value : Number(value);
   return Number.isFinite(number) && number > 0 ? Math.round(number * 100) : null;
@@ -122,7 +126,7 @@ export async function scanAllowedSources(env: Env, rules: WatchRule[]): Promise<
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "erro desconhecido";
-      await sourceOutcome(env, source.id, false, message);
+      await sourceOutcome(env, source.id, false, message, shouldBlockSource(message));
       results.push({ sourceId: source.id, offers: [], ok: false, error: message });
     }
   }

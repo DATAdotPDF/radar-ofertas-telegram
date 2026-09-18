@@ -27,11 +27,32 @@ O projeto dá prioridade a API, feed autorizado ou HTML público permitido. Ele 
 | --- | --- | --- |
 | API conectada | Mercado Livre | OAuth oficial, já ativo. |
 | API ou parceria | Amazon Brasil, Shopee Brasil, AliExpress Brasil, Eneba | Credenciais aprovadas pelo respectivo programa. |
+| Rastreadores digitais | Nintendo eShop — Ofertas oficiais, NT Deals Brasil e PSPrices Brasil | Região Brasil e Switch/Switch 2. Aguardar revisão de termos, `robots.txt` ou feed permitido. |
 | HTML público sujeito a revisão | Nintendo Brasil, KaBuM!, Magalu, Fast Shop, Casas Bahia, Ponto, Americanas, Carrefour, Gamer Hut, TK Fortini, ShopB, MeuGameUsado, Zoom, Buscapé, GameHunter e SetupBarato | Revisão documentada de termos e `robots.txt`, seguida de ativação no D1. |
 | Manual ou parceria | Pelando, Promobit, NintenDrops e Nintendo Barato | Feed permitido, parceria ou conteúdo encaminhado pelo administrador. |
 | Bloqueada por padrão | OLX | Autorização formal da OLX ou fonte licenciada. Não há crawling automático. |
 
 O catálogo inteiro aparece em `/fontes`, com o estado e a condição de ativação. Uma fonte `pending` ou `blocked` continua no radar de configuração, mas não recebe coleta até que exista uma via permitida.
+
+Quando uma fonte ativa retornar `401`, `403` ou `429`, o Radar muda seu estado para `blocked` e não repete a coleta. A retomada exige uma via permitida e uma revisão manual.
+
+## Formato dos alertas
+
+O Telegram recebe um alerta curto, sem copiar mensagens de outros canais:
+
+```text
+[Mercado Livre] Produto e edição
+Cupom: ...
+Loja/vendedor: ...
+PIX: R$ ...
+À vista: R$ ...
+Frete: ...
+Resumo: ...
+Motivo: preço abaixo do teto
+Verificado: data e hora
+```
+
+O alerta inclui botões para abrir o anúncio e, quando confirmado, o trailer oficial. O Radar limita cada régua a três alertas bem classificados por busca para evitar excesso de mensagens.
 
 ## Segurança: Cubo de McCumber
 

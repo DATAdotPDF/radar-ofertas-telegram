@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sourceQueries } from "../src/sources";
+import { shouldBlockSource, sourceQueries } from "../src/sources";
 import type { WatchRule } from "../src/types";
 
 const rule: WatchRule = {
@@ -15,5 +15,11 @@ describe("consultas das fontes", () => {
 
   it("usa o nome da régua se o histórico de termos estiver inválido", () => {
     expect(sourceQueries({ ...rule, include_terms_json: "{" })).toEqual([rule.name]);
+  });
+
+  it("bloqueia uma fonte que recusa ou limita requisições", () => {
+    expect(shouldBlockSource("API retornou 403")).toBe(true);
+    expect(shouldBlockSource("API retornou 429")).toBe(true);
+    expect(shouldBlockSource("erro de rede")).toBe(false);
   });
 });
