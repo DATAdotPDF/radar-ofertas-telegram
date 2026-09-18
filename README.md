@@ -13,7 +13,7 @@ O projeto não contém API keys, tokens, senhas ou dados pessoais.
 - Comandos do Telegram: `/adicionar`, `/regras`, `/editar`, `/pausar`, `/remover`, `/agora`, `/ofertas`, `/fontes`, `/status`, `/quarentena` e `/conectar_ml`.
 - Filtros de preço, queda, mediana de 30 dias, novo menor preço, duplicatas e top 3 por régua.
 - Filtro de usados: foto, descrição mínima, termos de risco, reputação, garantia, nota fiscal e quarentena para preço suspeito.
-- Mercado Livre por OAuth: o token é renovado automaticamente e guardado criptografado no D1.
+- Mercado Livre por OAuth: o token é renovado automaticamente e guardado criptografado no D1. As buscas usam os termos de cada régua, não apenas o nome genérico dela.
 - Coletor Playwright separado para fontes liberadas e com URL de busca cadastrada.
 - Conector opcional para GPT-5.6 Luna, desligado por padrão.
 
@@ -23,7 +23,15 @@ Todas as fontes começam como `pending`. Nenhuma coleta automática roda até re
 
 O projeto dá prioridade a API, feed autorizado ou HTML público permitido. Ele não tenta passar por CAPTCHA, bloqueio, login, 401, 403 ou 429.
 
-OLX fica preparada, sem coleta automática. A Amazon só entra após aprovação da Creators API. Fontes de promoções entram por parceria, feed permitido ou conteúdo encaminhado.
+| Grupo | Fontes cadastradas | Caminho para ativação |
+| --- | --- | --- |
+| API conectada | Mercado Livre | OAuth oficial, já ativo. |
+| API ou parceria | Amazon Brasil, Shopee Brasil, AliExpress Brasil, Eneba | Credenciais aprovadas pelo respectivo programa. |
+| HTML público sujeito a revisão | Nintendo Brasil, KaBuM!, Magalu, Fast Shop, Casas Bahia, Ponto, Americanas, Carrefour, Gamer Hut, TK Fortini, ShopB, MeuGameUsado, Zoom, Buscapé, GameHunter e SetupBarato | Revisão documentada de termos e `robots.txt`, seguida de ativação no D1. |
+| Manual ou parceria | Pelando, Promobit, NintenDrops e Nintendo Barato | Feed permitido, parceria ou conteúdo encaminhado pelo administrador. |
+| Bloqueada por padrão | OLX | Autorização formal da OLX ou fonte licenciada. Não há crawling automático. |
+
+O catálogo inteiro aparece em `/fontes`, com o estado e a condição de ativação. Uma fonte `pending` ou `blocked` continua no radar de configuração, mas não recebe coleta até que exista uma via permitida.
 
 ## Segurança: Cubo de McCumber
 
@@ -78,7 +86,7 @@ https://SEU-WORKER.workers.dev/webhooks/mercadolivre
 
 Nesta versão, a rota apenas confirma o recebimento. As buscas de ofertas seguem o cron horário.
 
-Depois da publicação e dos três Secrets, use `/conectar_ml` no Telegram. O token de renovação é criptografado antes de ser salvo no D1.
+Depois da publicação e dos três Secrets, use `/conectar_ml` no Telegram. O token de renovação é criptografado antes de ser salvo no D1. Em seguida, envie `/agora` para testar a primeira busca.
 
 ## GitHub Actions
 

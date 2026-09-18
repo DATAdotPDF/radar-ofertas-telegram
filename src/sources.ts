@@ -19,8 +19,17 @@ function urlFor(template: string, query: string): string | null {
   }
 }
 
-function queryFor(rule: WatchRule): string {
-  return rule.name;
+export function sourceQueries(rule: WatchRule): string[] {
+  try {
+    const terms = JSON.parse(rule.include_terms_json) as unknown;
+    if (Array.isArray(terms)) {
+      const unique = [...new Set(terms.filter((term): term is string => typeof term === "string").map((term) => term.trim()).filter(Boolean))];
+      if (unique.length) return unique.slice(0, 6);
+    }
+  } catch {
+    // A régua continua pesquisável pelo nome se o histórico estiver inválido.
+  }
+  return [rule.name];
 }
 
 function asCents(value: unknown): number | null {
@@ -32,12 +41,13 @@ async function mercadoLivre(env: Env, source: SourceConfig, rules: WatchRule[]):
   const mapped: SourceOffer[] = [];
   const accessToken = await meliAccessToken(env);
   for (const rule of rules) {
-    const response = await fetch(`https://api.mercadolibre.com/sites/MLB/search?q=${encodeURIComponent(queryFor(rule))}&limit=20&sort=price_asc`, {
-      headers: { "Accept": "application/json", Authorization: `Bearer ${accessToken}` }
-    });
-    if (!response.ok) throw new Error(`API Mercado Livre retornou ${response.status}`);
-    const data = await response.json() as { results?: Array<Record<string, unknown>> };
-    const offers = await Promise.all((data.results ?? []).map(async (item): Promise<SourceOffer | null> => {
+    for (const query of sourceQueries(rule)) {
+      const response = await fetch(`https://api.mercadolibre.com/sites/MLB/search?q=${encodeURIComponent(query)}&limit=20&sort=price_asc`, {
+        headers: { "Accept": "application/json", Authorization: `Bearer ${accessToken}` }
+      });
+      if (!response.ok) throw new Error(`API Mercado Livre retornou ${response.status}`);
+      const data = await response.json() as { results?: Array<Record<string, unknown>> };
+      const offers = await Promise.all((data.results ?? []).map(async (item): Promise<SourceOffer | null> => {
       const priceCents = asCents(item.price);
       const permalink = typeof item.permalink === "string" ? item.permalink : null;
       const externalId = typeof item.id === "string" ? item.id : null;
@@ -63,8 +73,9 @@ async function mercadoLivre(env: Env, source: SourceConfig, rules: WatchRule[]):
         stockStatus: "in_stock",
         warranty: typeof item.warranty === "string" && item.warranty.length > 0
       };
-    }));
-    mapped.push(...offers.filter((offer): offer is SourceOffer => offer !== null));
+      }));
+      mapped.push(...offers.filter((offer): offer is SourceOffer => offer !== null));
+    }
   }
   return [...new Map(mapped.map((offer) => [`${offer.sourceId}:${offer.externalId}`, offer])).values()];
 }
