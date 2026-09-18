@@ -15,6 +15,7 @@ export interface Env {
   MELI_CLIENT_ID?: string;
   MELI_CLIENT_SECRET?: string;
   MELI_TOKEN_ENCRYPTION_KEY?: string;
+  AUTHORIZED_FEED_HOSTS?: string;
 }
 
 export interface WatchRule {

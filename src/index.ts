@@ -1,7 +1,7 @@
 import {
   activeRules, alertMaySend, allRules, allSources, createRule, getUserSession, pauseRule, priceContext,
   quarantineOffer, quarantinedOffers, recentOffers, recordAlert, removeRule, setUserSession, statusSummary,
-  telegramDestinations, updateRule, upsertOffer, upsertTelegramUser
+  sourceOutcome, telegramDestinations, updateRule, upsertOffer, upsertTelegramUser
 } from "./db";
 import { assessUsedOffer, evaluateTriggers, formatBRL, matchesRule, scoreCandidate } from "./scoring";
 import { completeMeliAuthorization, createMeliAuthorizationUrl, meliOAuthState } from "./meli";
@@ -214,6 +214,18 @@ export default {
     if (url.pathname.startsWith("/internal/")) {
       if (!authorizedInternal(request, env)) return new Response("forbidden", { status: 403 });
       if (request.method === "GET" && url.pathname === "/internal/rules") return json({ rules: await activeRules(env), sources: await allSources(env) });
+      if (request.method === "POST" && url.pathname === "/internal/source-outcome") {
+        const data = await request.json() as { sourceId?: unknown; ok?: unknown; error?: unknown; pause?: unknown };
+        if (typeof data.sourceId !== "string" || !/^[a-z0-9-]{1,80}$/i.test(data.sourceId)) return json({ error: "sourceId inválido" }, 400);
+        await sourceOutcome(
+          env,
+          data.sourceId,
+          data.ok === true,
+          typeof data.error === "string" ? data.error.slice(0, 500) : null,
+          data.pause === true
+        );
+        return json({ ok: true });
+      }
       if (request.method === "POST" && url.pathname === "/internal/ingest") {
         const data = await request.json() as { offers?: SourceOffer[] };
         return json(await ingestOffers(env, Array.isArray(data.offers) ? data.offers.slice(0, 500) : []));
